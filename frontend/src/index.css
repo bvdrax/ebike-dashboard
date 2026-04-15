@@ -1,0 +1,114 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:           #0d0d0d;
+  --surface-1:    #141414;
+  --surface-2:    #1a1a1a;
+  --surface-3:    #222222;
+  --border:       #2a2a2a;
+  --border-bright:#3a3a3a;
+  --text:         #e8e8e8;
+  --text-muted:   #888888;
+  --text-dim:     #555555;
+
+  --green:        #4ade80;
+  --green-dim:    #166534;
+  --green-glow:   rgba(5, 46, 22, 0.3);
+
+  --red:          #f87171;
+  --red-dim:      #7f1d1d;
+  --red-glow:     rgba(45, 5, 5, 0.3);
+
+  --amber:        #fbbf24;
+  --amber-glow:   rgba(45, 31, 5, 0.3);
+
+  --blue:         #60a5fa;
+  --blue-dim:     #1e3a5f;
+
+  --radius:       6px;
+  --radius-lg:    10px;
+
+  --font-display: 'Space Mono', monospace;
+  --font-mono:    'Space Mono', monospace;
+  --font-body:    'Space Grotesk', sans-serif;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+.card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: var(--radius);
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-primary {
+  background: var(--green);
+  color: #000;
+  border: none;
+}
+.btn-primary:hover:not(:disabled) { opacity: 0.85; }
+
+.btn-ghost {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+.btn-ghost:hover:not(:disabled) {
+  border-color: var(--border-bright);
+  color: var(--text);
+}
+
+.label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border);
+  border-top-color: var(--green);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-in { animation: fadeIn 0.2s ease; }
+
+input:focus, select:focus {
+  outline: none;
+  border-color: var(--border-bright) !important;
+}
