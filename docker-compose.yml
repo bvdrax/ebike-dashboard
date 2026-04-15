@@ -37,16 +37,27 @@ services:
       STRAVA_REFRESH_TOKEN: ${STRAVA_REFRESH_TOKEN}
       LACHLAN_STRAVA_ID: ${LACHLAN_STRAVA_ID}
       ADMIN_SETUP_KEY: ${ADMIN_SETUP_KEY}
-    ports:
-      - "3001:3001"
 
   frontend:
     build: ./frontend
     restart: unless-stopped
     depends_on:
       - backend
-    ports:
-      - "3000:80"
+    networks:
+      - default
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ebike.rule=Host(`ebike.supervarelas.com`)"
+      - "traefik.http.routers.ebike.entrypoints=websecure"
+      - "traefik.http.routers.ebike.tls.certresolver=cloudflare"
+      - "traefik.http.routers.ebike.tls.domains[0].main=supervarelas.com"
+      - "traefik.http.routers.ebike.tls.domains[0].sans=*.supervarelas.com"
+      - "traefik.http.services.ebike.loadbalancer.server.port=80"
 
 volumes:
   db_data:
+
+networks:
+  proxy:
+    external: true
