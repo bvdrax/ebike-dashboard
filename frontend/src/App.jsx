@@ -26,15 +26,15 @@ function NavButton({ active, onClick, children }) {
 }
 
 function ChangePasswordModal({ onClose }) {
-  const [current, setCurrent] = useState('')
-  const [next, setNext] = useState('')
-  const [confirm, setConfirm] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [done, setDone] = useState(false)
 
   const submit = async (e) => {
     e.preventDefault()
+    const current = e.target.current_password.value
+    const next = e.target.new_password.value
+    const confirm = e.target.confirm_password.value
     if (next !== confirm) { setError('New passwords do not match'); return }
     if (next.length < 4) { setError('Password must be at least 4 characters'); return }
     setError(''); setSaving(true)
@@ -76,22 +76,19 @@ function ChangePasswordModal({ onClose }) {
           <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
             <div>
               <label className="label" style={{ display: 'block', marginBottom: '0.35rem' }}>Current Password</label>
-              <input type="password" name="current" style={inputStyle} autoComplete="current-password"
-                value={current} onChange={e => setCurrent(e.target.value)} />
+              <input type="password" name="current_password" style={inputStyle} autoComplete="current-password" autoCapitalize="none" autoCorrect="off" />
             </div>
             <div>
               <label className="label" style={{ display: 'block', marginBottom: '0.35rem' }}>New Password</label>
-              <input type="password" name="new" style={inputStyle} autoComplete="new-password"
-                value={next} onChange={e => setNext(e.target.value)} />
+              <input type="password" name="new_password" style={inputStyle} autoComplete="new-password" autoCapitalize="none" autoCorrect="off" />
             </div>
             <div>
               <label className="label" style={{ display: 'block', marginBottom: '0.35rem' }}>Confirm New Password</label>
-              <input type="password" name="confirm" style={inputStyle} autoComplete="new-password"
-                value={confirm} onChange={e => setConfirm(e.target.value)} />
+              <input type="password" name="confirm_password" style={inputStyle} autoComplete="new-password" autoCapitalize="none" autoCorrect="off" />
             </div>
             {error && <div style={{ color: 'var(--red)', fontSize: '0.8rem' }}>{error}</div>}
             <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
-              <button type="submit" className="btn btn-primary" disabled={saving || !current || !next || !confirm}>
+              <button type="submit" className="btn btn-primary" disabled={saving}>
                 {saving ? <span className="spinner" style={{ width: 14, height: 14 }} /> : 'Update Password'}
               </button>
               <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>

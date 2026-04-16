@@ -551,7 +551,6 @@ function UsersTab() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [resetingId, setResetingId] = useState(null)
-  const [resetForm, setResetForm] = useState({ password: '', confirm: '' })
   const [resetError, setResetError] = useState('')
   const [resetSaving, setResetSaving] = useState(false)
 
@@ -571,16 +570,18 @@ function UsersTab() {
 
   const startReset = (id) => {
     setResetingId(id)
-    setResetForm({ password: '', confirm: '' })
     setResetError('')
   }
 
-  const saveReset = async (id) => {
-    if (resetForm.password !== resetForm.confirm) { setResetError('Passwords do not match'); return }
-    if (resetForm.password.length < 4) { setResetError('Password too short'); return }
+  const saveReset = async (e, id) => {
+    e.preventDefault()
+    const password = e.target.password.value
+    const confirm = e.target.confirm.value
+    if (password !== confirm) { setResetError('Passwords do not match'); return }
+    if (password.length < 4) { setResetError('Password too short'); return }
     setResetSaving(true); setResetError('')
     try {
-      await api.resetUserPassword(id, resetForm.password)
+      await api.resetUserPassword(id, password)
       setResetingId(null)
     } catch (err) {
       setResetError(err.message)
@@ -609,24 +610,21 @@ function UsersTab() {
               </button>
             </div>
             {resetingId === u.id && (
-              <div style={{ padding: '0.75rem', background: 'var(--surface-2)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <form onSubmit={e => saveReset(e, u.id)}
+                style={{ padding: '0.75rem', background: 'var(--surface-2)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
                   <Field label="New Password">
-                    <input type="password" value={resetForm.password} onChange={e => setResetForm(f => ({ ...f, password: e.target.value }))}
-                      style={inputStyle} autoComplete="new-password" />
+                    <input type="password" name="password" style={inputStyle} autoComplete="new-password" autoCapitalize="none" autoCorrect="off" />
                   </Field>
                   <Field label="Confirm">
-                    <input type="password" value={resetForm.confirm} onChange={e => setResetForm(f => ({ ...f, confirm: e.target.value }))}
-                      style={inputStyle} autoComplete="new-password" />
+                    <input type="password" name="confirm" style={inputStyle} autoComplete="new-password" autoCapitalize="none" autoCorrect="off" />
                   </Field>
                 </div>
                 {resetError && <div style={{ color: 'var(--red)', fontSize: '0.8rem' }}>{resetError}</div>}
-                <button className="btn btn-primary" onClick={() => saveReset(u.id)}
-                  disabled={resetSaving || !resetForm.password || !resetForm.confirm}
-                  style={{ alignSelf: 'flex-start' }}>
+                <button type="submit" className="btn btn-primary" disabled={resetSaving} style={{ alignSelf: 'flex-start' }}>
                   {resetSaving ? <span className="spinner" style={{ width: 12, height: 12 }} /> : 'Save'}
                 </button>
-              </div>
+              </form>
             )}
           </div>
         ))}
