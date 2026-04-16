@@ -32,9 +32,10 @@ function ChangePasswordModal({ onClose }) {
 
   const submit = async (e) => {
     e.preventDefault()
-    const current = e.target.current_password.value
-    const next = e.target.new_password.value
-    const confirm = e.target.confirm_password.value
+    const fd = new FormData(e.target)
+    const current = fd.get('current_password')
+    const next = fd.get('new_password')
+    const confirm = fd.get('confirm_password')
     if (next !== confirm) { setError('New passwords do not match'); return }
     if (next.length < 4) { setError('Password must be at least 4 characters'); return }
     setError(''); setSaving(true)

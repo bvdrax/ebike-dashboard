@@ -575,8 +575,9 @@ function UsersTab() {
 
   const saveReset = async (e, id) => {
     e.preventDefault()
-    const password = e.target.password.value
-    const confirm = e.target.confirm.value
+    const fd = new FormData(e.target)
+    const password = fd.get('password')
+    const confirm = fd.get('confirm')
     if (password !== confirm) { setResetError('Passwords do not match'); return }
     if (password.length < 4) { setResetError('Password too short'); return }
     setResetSaving(true); setResetError('')

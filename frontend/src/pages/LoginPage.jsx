@@ -9,8 +9,9 @@ export default function LoginPage() {
 
   const submit = async (e) => {
     e.preventDefault()
-    const username = e.target.username.value
-    const password = e.target.password.value
+    const data = new FormData(e.target)
+    const username = data.get('username')
+    const password = data.get('password')
     setError('')
     setLoading(true)
     try {
