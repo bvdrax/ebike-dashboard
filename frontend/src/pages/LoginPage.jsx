@@ -4,16 +4,17 @@ import { useAuth } from '../lib/auth.jsx'
 
 export default function LoginPage() {
   const { login } = useAuth()
-  const [form, setForm] = useState({ username: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   const submit = async (e) => {
     e.preventDefault()
+    const username = e.target.username.value
+    const password = e.target.password.value
     setError('')
     setLoading(true)
     try {
-      const data = await api.login(form.username, form.password)
+      const data = await api.login(username, password)
       login(data.token, data.user)
     } catch (err) {
       setError(err.message)
@@ -58,8 +59,7 @@ export default function LoginPage() {
             <label className="label" style={{ display: 'block', marginBottom: '0.35rem' }}>Username</label>
             <input
               type="text"
-              value={form.username}
-              onChange={e => setForm(f => ({ ...f, username: e.target.value }))}
+              name="username"
               style={inputStyle}
               autoFocus
               autoComplete="username"
@@ -72,8 +72,7 @@ export default function LoginPage() {
             <label className="label" style={{ display: 'block', marginBottom: '0.35rem' }}>Password</label>
             <input
               type="password"
-              value={form.password}
-              onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+              name="password"
               style={inputStyle}
               autoComplete="current-password"
             />
@@ -82,7 +81,7 @@ export default function LoginPage() {
           <button
             type="submit"
             className="btn btn-primary"
-            disabled={loading || !form.username || !form.password}
+            disabled={loading}
             style={{ justifyContent: 'center' }}
           >
             {loading ? <span className="spinner" style={{ width: 14, height: 14 }} /> : 'Sign in'}
