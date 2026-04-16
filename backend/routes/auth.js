@@ -28,10 +28,13 @@ router.post('/setup', async (req, res, next) => {
 router.post('/login', async (req, res, next) => {
   try {
     const { username, password } = req.body;
+    console.log(`[Login] username="${username}" len=${username?.length} pwlen=${password?.length}`);
     const { rows } = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
     const user = rows[0];
+    console.log(`[Login] user found=${!!user}`);
     if (!user) return res.status(401).json({ error: 'Invalid credentials' });
     const match = await bcrypt.compare(password, user.password_hash);
+    console.log(`[Login] match=${match}`);
     if (!match) return res.status(401).json({ error: 'Invalid credentials' });
     const token = jwt.sign(
       { id: user.id, username: user.username, role: user.role, display_name: user.display_name },
