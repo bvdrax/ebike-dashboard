@@ -6,6 +6,7 @@ export default function LoginPage() {
   const { login } = useAuth()
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showPw, setShowPw] = useState(false)
 
   const submit = async (e) => {
     e.preventDefault()
@@ -71,12 +72,29 @@ export default function LoginPage() {
           </div>
           <div>
             <label className="label" style={{ display: 'block', marginBottom: '0.35rem' }}>Password</label>
-            <input
-              type="password"
-              name="password"
-              style={inputStyle}
-              autoComplete="current-password"
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showPw ? 'text' : 'password'}
+                name="password"
+                style={{ ...inputStyle, paddingRight: '2.5rem' }}
+                autoComplete="current-password"
+                autoCapitalize="none"
+                autoCorrect="off"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPw(v => !v)}
+                style={{
+                  position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)',
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: 'var(--text-muted)', fontSize: '0.75rem', padding: '0.25rem',
+                  fontFamily: 'var(--font-body)',
+                }}
+                tabIndex={-1}
+              >
+                {showPw ? 'hide' : 'show'}
+              </button>
+            </div>
           </div>
           {error && <div style={{ color: 'var(--red)', fontSize: '0.875rem' }}>{error}</div>}
           <button
