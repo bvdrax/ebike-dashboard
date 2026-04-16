@@ -63,6 +63,9 @@ export default function LoginPage() {
               style={inputStyle}
               autoFocus
               autoComplete="username"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck="false"
             />
           </div>
           <div>
