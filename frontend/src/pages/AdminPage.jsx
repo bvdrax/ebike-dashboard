@@ -386,7 +386,7 @@ function ActivityConfigTab() {
                     <option value="hour">hour</option>
                   </select>
                 </Field>
-                <Field label="Minimum value">
+                <Field label={`Minimum (${editing.unit}s)`}>
                   <input type="number" step="0.1" value={editing.minimum_value}
                     onChange={e => setEditing(ed => ({ ...ed, minimum_value: parseFloat(e.target.value) }))}
                     style={inputStyle} />
@@ -406,7 +406,7 @@ function ActivityConfigTab() {
                 {type.strava_type && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Strava: {type.strava_type}</div>}
               </div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--text-muted)', opacity: type.enabled ? 1 : 0.4 }}>
-                {type.points_per_unit} pts/{type.unit} · min {type.minimum_value}
+                {type.points_per_unit} pts/{type.unit} · min {type.minimum_value} {type.unit}
               </div>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <button className="btn btn-ghost" onClick={() => setEditing({ ...type })} style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}>
@@ -444,7 +444,7 @@ function ActivityConfigTab() {
                 <option value="hour">hour</option>
               </select>
             </Field>
-            <Field label="Minimum"><input type="number" value={newType.minimum_value} onChange={e => setNewType(n => ({ ...n, minimum_value: e.target.value }))} style={inputStyle} /></Field>
+            <Field label={`Minimum (${newType.unit}s)`}><input type="number" value={newType.minimum_value} onChange={e => setNewType(n => ({ ...n, minimum_value: e.target.value }))} style={inputStyle} /></Field>
           </div>
           {addError && <div style={{ color: 'var(--red)', fontSize: '0.8rem' }}>{addError}</div>}
           <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -464,15 +464,23 @@ function ActivityConfigTab() {
 // ── Weekly Goal ───────────────────────────────────────────────────────────────
 function WeeklyGoalTab() {
   const [goal, setGoal] = useState('')
+  const [maxPerDay, setMaxPerDay] = useState('')
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    api.getWeeklyConfig().then(c => { setGoal(c.points_goal); setLoading(false) })
+    api.getWeeklyConfig().then(c => {
+      setGoal(c.points_goal)
+      setMaxPerDay(c.max_points_per_day ?? '')
+      setLoading(false)
+    })
   }, [])
 
   const save = async () => {
-    await api.updateWeeklyConfig({ points_goal: parseInt(goal) })
+    await api.updateWeeklyConfig({
+      points_goal: parseInt(goal),
+      max_points_per_day: maxPerDay !== '' ? parseInt(maxPerDay) : null,
+    })
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
@@ -480,15 +488,23 @@ function WeeklyGoalTab() {
   if (loading) return <div className="spinner" />
 
   return (
-    <div style={{ maxWidth: '320px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+    <div style={{ maxWidth: '400px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-        The weekly points target. Applies to the current week going forward.
+        Changes apply to the current week going forward. Recalculates existing week totals.
       </p>
       <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         <Field label="Weekly Points Goal">
           <input type="number" min="1" value={goal} onChange={e => setGoal(e.target.value)} style={inputStyle} />
         </Field>
-        <button className="btn btn-primary" onClick={save} style={{ alignSelf: 'flex-start' }}>
+        <Field label="Max Points Per Day (leave blank for no cap)">
+          <input
+            type="number" min="1" value={maxPerDay}
+            onChange={e => setMaxPerDay(e.target.value)}
+            style={inputStyle}
+            placeholder="No cap"
+          />
+        </Field>
+        <button className="btn btn-primary" onClick={save} disabled={!goal} style={{ alignSelf: 'flex-start' }}>
           {saved ? '✓ Saved' : 'Save'}
         </button>
       </div>

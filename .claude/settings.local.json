@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bash deploy.sh)",
+      "Bash(ssh bvdrax@10.0.0.31 'HASH=$\\(docker exec ebike-backend-1 node -e '\\\\''require\\(\"bcrypt\"\\).hash\\(process.argv[1], 10\\).then\\(h => console.log\\(h\\)\\)'\\\\'' '\\\\''ebikes'\\\\''\\) && docker exec ebike-db-1 psql -U ebike ebike -c \"UPDATE users SET password_hash = '\\\\''$HASH'\\\\'' WHERE username = '\\\\''anna'\\\\'';\" && curl -s -X POST http://localhost:3001/api/auth/login -H '\\\\''Content-Type: application/json'\\\\'' -d '\\\\''{\"username\":\"anna\",\"password\":\"ebikes\"}'\\\\'' | python3 -c '\\\\''import sys,json; d=json.load\\(sys.stdin\\); print\\(\"OK\" if d.get\\(\"token\"\\) else d\\)'\\\\''')",
+      "Bash(ssh bvdrax@10.0.0.31 \"sleep 2 && curl -s -X POST http://localhost:3001/api/auth/login -H 'Content-Type: application/json' -d '{\\\\\"username\\\\\":\\\\\"anna\\\\\",\\\\\"password\\\\\":\\\\\"ebikes\\\\\"}'\")",
+      "Bash(ssh bvdrax@10.0.0.31 \"cd ~/apps/ebike && docker compose up -d backend && sleep 4 && curl -s -X POST http://localhost:3001/api/auth/login -H 'Content-Type: application/json' -d '{\\\\\"username\\\\\":\\\\\"anna\\\\\",\\\\\"password\\\\\":\\\\\"ebikes\\\\\"}' | grep -o '\\\\\"token\\\\\":\\\\\"[^\\\\\"]*'\")",
+      "Bash(ssh bvdrax@10.0.0.31 \"sleep 5 && curl -s -X POST http://localhost:3001/api/auth/login -H 'Content-Type: application/json' -d '{\\\\\"username\\\\\":\\\\\"anna\\\\\",\\\\\"password\\\\\":\\\\\"ebikes\\\\\"}'\")",
+      "Bash(ssh bvdrax@10.0.0.31 \"cd ~/apps/ebike && docker compose ps && docker compose logs backend --tail=20\")"
+    ]
+  }
+}

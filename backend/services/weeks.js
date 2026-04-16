@@ -28,14 +28,32 @@ async function ensureWeek(weekStart, weekEnd) {
 }
 
 async function recalcWeekPoints(weekId) {
-  await pool.query(`
-    UPDATE weeks
-    SET points_earned = (
-      SELECT COALESCE(SUM(points_awarded), 0)
-      FROM activities WHERE week_id = $1
-    )
-    WHERE id = $1
-  `, [weekId]);
+  const { rows: [config] } = await pool.query('SELECT max_points_per_day FROM weekly_config WHERE id = 1');
+  const maxPerDay = config?.max_points_per_day || null;
+
+  if (maxPerDay) {
+    await pool.query(`
+      UPDATE weeks
+      SET points_earned = (
+        SELECT COALESCE(SUM(daily_pts), 0)
+        FROM (
+          SELECT LEAST(SUM(points_awarded), $2) AS daily_pts
+          FROM activities WHERE week_id = $1
+          GROUP BY activity_date
+        ) daily
+      )
+      WHERE id = $1
+    `, [weekId, maxPerDay]);
+  } else {
+    await pool.query(`
+      UPDATE weeks
+      SET points_earned = (
+        SELECT COALESCE(SUM(points_awarded), 0)
+        FROM activities WHERE week_id = $1
+      )
+      WHERE id = $1
+    `, [weekId]);
+  }
 }
 
 // Finalize all past weeks that haven't been closed yet

@@ -47,18 +47,18 @@ router.put('/activity-types/:id', requireAuth, requireRole('admin'), async (req,
 // GET /api/config/weekly
 router.get('/weekly', requireAuth, async (req, res, next) => {
   try {
-    const { rows } = await pool.query('SELECT points_goal FROM weekly_config WHERE id = 1');
-    res.json(rows[0] || { points_goal: 100 });
+    const { rows } = await pool.query('SELECT points_goal, max_points_per_day FROM weekly_config WHERE id = 1');
+    res.json(rows[0] || { points_goal: 100, max_points_per_day: null });
   } catch (err) { next(err); }
 });
 
 // PUT /api/config/weekly (admin)
 router.put('/weekly', requireAuth, requireRole('admin'), async (req, res, next) => {
   try {
-    const { points_goal } = req.body;
+    const { points_goal, max_points_per_day } = req.body;
     const { rows } = await pool.query(
-      'UPDATE weekly_config SET points_goal = $1, updated_at = NOW() WHERE id = 1 RETURNING *',
-      [points_goal]
+      'UPDATE weekly_config SET points_goal = $1, max_points_per_day = $2, updated_at = NOW() WHERE id = 1 RETURNING *',
+      [points_goal, max_points_per_day ?? null]
     );
     res.json(rows[0]);
   } catch (err) { next(err); }
