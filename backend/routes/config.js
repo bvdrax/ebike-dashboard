@@ -105,4 +105,66 @@ router.post('/weeks/:id/lift-suspension', requireAuth, requireRole('admin'), asy
   } catch (err) { next(err); }
 });
 
+// GET /api/config/activities (admin)
+router.get('/activities', requireAuth, requireRole('admin'), async (req, res, next) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT a.*, at.name AS type_name, at.unit, at.points_per_unit, at.minimum_value,
+             w.week_start
+      FROM activities a
+      LEFT JOIN activity_types at ON at.id = a.activity_type_id
+      LEFT JOIN weeks w ON w.id = a.week_id
+      ORDER BY a.activity_date DESC, a.created_at DESC
+      LIMIT 200
+    `);
+    res.json(rows);
+  } catch (err) { next(err); }
+});
+
+// PUT /api/config/activities/:id (admin) — edit name, note, value
+router.put('/activities/:id', requireAuth, requireRole('admin'), async (req, res, next) => {
+  try {
+    const { value, name, note } = req.body;
+
+    const { rows: [current] } = await pool.query(`
+      SELECT a.*, at.points_per_unit, at.minimum_value
+      FROM activities a
+      LEFT JOIN activity_types at ON at.id = a.activity_type_id
+      WHERE a.id = $1
+    `, [req.params.id]);
+    if (!current) return res.status(404).json({ error: 'Not found' });
+
+    const newValue = value !== undefined ? parseFloat(value) : parseFloat(current.value);
+    const points = newValue < parseFloat(current.minimum_value)
+      ? 0
+      : Math.round(newValue * parseFloat(current.points_per_unit));
+
+    const { rows: [updated] } = await pool.query(`
+      UPDATE activities SET
+        value          = $1,
+        points_awarded = $2,
+        name           = COALESCE($3, name),
+        note           = $4
+      WHERE id = $5
+      RETURNING *
+    `, [newValue, points, name ?? null, note ?? null, req.params.id]);
+
+    await recalcWeekPoints(current.week_id);
+    res.json(updated);
+  } catch (err) { next(err); }
+});
+
+// DELETE /api/config/activities/:id (admin)
+router.delete('/activities/:id', requireAuth, requireRole('admin'), async (req, res, next) => {
+  try {
+    const { rows: [activity] } = await pool.query(
+      'DELETE FROM activities WHERE id = $1 RETURNING *',
+      [req.params.id]
+    );
+    if (!activity) return res.status(404).json({ error: 'Not found' });
+    await recalcWeekPoints(activity.week_id);
+    res.json({ ok: true });
+  } catch (err) { next(err); }
+});
+
 module.exports = router;

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { api } from '../lib/api'
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
-const TABS = ['Manual Credit', 'Activity Config', 'Weekly Goal', 'Users', 'Weeks']
+const TABS = ['Manual Credit', 'Activities', 'Activity Config', 'Weekly Goal', 'Users', 'Weeks']
 
 export default function AdminPage() {
   const [tab, setTab] = useState(0)
@@ -35,10 +35,11 @@ export default function AdminPage() {
       </div>
 
       {tab === 0 && <ManualCreditTab />}
-      {tab === 1 && <ActivityConfigTab />}
-      {tab === 2 && <WeeklyGoalTab />}
-      {tab === 3 && <UsersTab />}
-      {tab === 4 && <WeeksTab />}
+      {tab === 1 && <ActivitiesTab />}
+      {tab === 2 && <ActivityConfigTab />}
+      {tab === 3 && <WeeklyGoalTab />}
+      {tab === 4 && <UsersTab />}
+      {tab === 5 && <WeeksTab />}
     </div>
   )
 }
@@ -143,6 +144,176 @@ function ManualCreditTab() {
           {loading ? <span className="spinner" style={{ width: 14, height: 14 }} /> : '+ Add Credit'}
         </button>
       </div>
+    </div>
+  )
+}
+
+// ── Activities ────────────────────────────────────────────────────────────────
+function ActivitiesTab() {
+  const [activities, setActivities] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [editing, setEditing] = useState(null) // { id, value, name, note }
+  const [saving, setSaving] = useState(null)
+  const [deleting, setDeleting] = useState(null)
+
+  useEffect(() => {
+    api.getActivities().then(data => { setActivities(data); setLoading(false) })
+  }, [])
+
+  const save = async (id) => {
+    setSaving(id)
+    try {
+      const updated = await api.updateActivity(id, {
+        value: parseFloat(editing.value),
+        name: editing.name || null,
+        note: editing.note || null,
+      })
+      setActivities(acts => acts.map(a => a.id === id ? { ...a, ...updated } : a))
+      setEditing(null)
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setSaving(null)
+    }
+  }
+
+  const remove = async (id) => {
+    if (!window.confirm('Delete this activity? Points will be recalculated.')) return
+    setDeleting(id)
+    try {
+      await api.deleteActivity(id)
+      setActivities(acts => acts.filter(a => a.id !== id))
+    } finally {
+      setDeleting(null)
+    }
+  }
+
+  const startEdit = (activity) => {
+    setEditing({ id: activity.id, value: activity.value, name: activity.name || '', note: activity.note || '' })
+  }
+
+  const previewPoints = (activity) => {
+    if (!editing || editing.id !== activity.id) return null
+    const v = parseFloat(editing.value)
+    if (isNaN(v)) return null
+    return v < parseFloat(activity.minimum_value)
+      ? 0
+      : Math.round(v * parseFloat(activity.points_per_unit))
+  }
+
+  if (loading) return <div className="spinner" />
+
+  if (activities.length === 0) {
+    return <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>No activities yet.</div>
+  }
+
+  // Group by week_start
+  const grouped = activities.reduce((acc, a) => {
+    const key = a.week_start || 'unknown'
+    if (!acc[key]) acc[key] = []
+    acc[key].push(a)
+    return acc
+  }, {})
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: '760px' }}>
+      <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+        Edit or delete any logged activity. Changing the value recalculates points automatically.
+      </p>
+      {Object.entries(grouped).map(([weekStart, acts]) => {
+        const label = weekStart !== 'unknown'
+          ? new Date(weekStart + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+          : 'Unknown week'
+        return (
+          <div key={weekStart}>
+            <div className="label" style={{ marginBottom: '0.5rem' }}>Week of {label}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+              {acts.map(activity => {
+                const isEditing = editing?.id === activity.id
+                const pts = previewPoints(activity)
+                return (
+                  <div key={activity.id} className="card" style={{ padding: '0.875rem 1rem' }}>
+                    {isEditing ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.75rem' }}>
+                          <Field label={`Value (${activity.unit})`}>
+                            <input
+                              type="number" step="0.01" value={editing.value}
+                              onChange={e => setEditing(ed => ({ ...ed, value: e.target.value }))}
+                              style={inputStyle}
+                            />
+                          </Field>
+                          <Field label="Name">
+                            <input
+                              type="text" value={editing.name}
+                              onChange={e => setEditing(ed => ({ ...ed, name: e.target.value }))}
+                              style={inputStyle}
+                            />
+                          </Field>
+                          <Field label="Note">
+                            <input
+                              type="text" value={editing.note}
+                              onChange={e => setEditing(ed => ({ ...ed, note: e.target.value }))}
+                              style={inputStyle}
+                            />
+                          </Field>
+                        </div>
+                        {pts !== null && (
+                          <div style={{ fontSize: '0.8rem', color: pts > 0 ? 'var(--green)' : 'var(--red)', fontWeight: 500 }}>
+                            → {pts > 0 ? `${pts} points` : `Below minimum — 0 points`}
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <button className="btn btn-primary" onClick={() => save(activity.id)} disabled={saving === activity.id}>
+                            {saving === activity.id ? <span className="spinner" style={{ width: 12, height: 12 }} /> : 'Save'}
+                          </button>
+                          <button className="btn btn-ghost" onClick={() => setEditing(null)}>Cancel</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                        <div style={{ flex: 1, minWidth: '160px' }}>
+                          <div style={{ fontWeight: 500, fontSize: '0.875rem' }}>{activity.name}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            {new Date(activity.activity_date + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })}
+                            {' · '}{activity.type_name}
+                            {' · '}{parseFloat(activity.value).toFixed(2)} {activity.unit}
+                            {activity.note && ` · ${activity.note}`}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
+                          <span style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', color: 'var(--green)' }}>
+                            +{activity.points_awarded}
+                          </span>
+                          <span style={{
+                            fontSize: '0.65rem', padding: '1px 6px', borderRadius: '4px', fontWeight: 600,
+                            textTransform: 'uppercase', letterSpacing: '0.05em',
+                            background: activity.source === 'strava' ? 'var(--blue-dim)' : 'var(--surface-3)',
+                            color: activity.source === 'strava' ? 'var(--blue)' : 'var(--text-muted)',
+                          }}>
+                            {activity.source}
+                          </span>
+                          <button className="btn btn-ghost" onClick={() => startEdit(activity)} style={{ padding: '0.3rem 0.65rem', fontSize: '0.8rem' }}>
+                            Edit
+                          </button>
+                          <button
+                            className="btn btn-ghost"
+                            onClick={() => remove(activity.id)}
+                            disabled={deleting === activity.id}
+                            style={{ padding: '0.3rem 0.65rem', fontSize: '0.8rem', color: 'var(--red)', borderColor: 'var(--red-dim)' }}
+                          >
+                            {deleting === activity.id ? <span className="spinner" style={{ width: 12, height: 12 }} /> : 'Delete'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
