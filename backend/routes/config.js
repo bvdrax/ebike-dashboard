@@ -110,7 +110,7 @@ router.get('/activities', requireAuth, requireRole('admin'), async (req, res, ne
   try {
     const { rows } = await pool.query(`
       SELECT a.*, at.name AS type_name, at.unit, at.points_per_unit, at.minimum_value,
-             w.week_start
+             TO_CHAR(w.week_start, 'YYYY-MM-DD') AS week_start
       FROM activities a
       LEFT JOIN activity_types at ON at.id = a.activity_type_id
       LEFT JOIN weeks w ON w.id = a.week_id
