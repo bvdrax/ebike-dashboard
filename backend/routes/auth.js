@@ -15,7 +15,7 @@ router.post('/setup', async (req, res, next) => {
     if (rows.length > 0) {
       return res.status(409).json({ error: 'Admin already exists' });
     }
-    const hash = await bcrypt.hash(password, 12);
+    const hash = await bcrypt.hash(password, 10);
     const result = await pool.query(
       'INSERT INTO users (username, password_hash, role, display_name) VALUES ($1, $2, $3, $4) RETURNING id, username, role, display_name',
       [username, hash, 'admin', display_name || username]
@@ -67,7 +67,7 @@ router.post('/users', requireAuth, requireRole('admin'), async (req, res, next) 
     if (!['athlete', 'parent'].includes(role)) {
       return res.status(400).json({ error: 'Role must be athlete or parent' });
     }
-    const hash = await bcrypt.hash(password, 12);
+    const hash = await bcrypt.hash(password, 10);
     const result = await pool.query(
       'INSERT INTO users (username, password_hash, role, display_name) VALUES ($1, $2, $3, $4) RETURNING id, username, role, display_name',
       [username, hash, role, display_name || username]
@@ -77,6 +77,21 @@ router.post('/users', requireAuth, requireRole('admin'), async (req, res, next) 
     if (err.code === '23505') return res.status(409).json({ error: 'Username already exists' });
     next(err);
   }
+});
+
+// PUT /api/auth/users/:id/password (admin only)
+router.put('/users/:id/password', requireAuth, requireRole('admin'), async (req, res, next) => {
+  try {
+    const { password } = req.body;
+    if (!password || password.length < 4) return res.status(400).json({ error: 'Password too short' });
+    const hash = await bcrypt.hash(password, 10);
+    const { rows } = await pool.query(
+      'UPDATE users SET password_hash = $1 WHERE id = $2 RETURNING id, username, role',
+      [hash, req.params.id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'User not found' });
+    res.json({ ok: true, user: rows[0] });
+  } catch (err) { next(err); }
 });
 
 module.exports = router;
