@@ -18,7 +18,11 @@ router.get('/weeks', requireAuth, async (req, res, next) => {
     const { rows: config } = await pool.query('SELECT points_goal FROM weekly_config WHERE id = 1');
     const goal = config[0]?.points_goal || 100;
     const { rows: weeks } = await pool.query(`
-      SELECT w.*, COUNT(a.id) AS activity_count
+      SELECT w.id,
+        TO_CHAR(w.week_start, 'YYYY-MM-DD') AS week_start,
+        TO_CHAR(w.week_end,   'YYYY-MM-DD') AS week_end,
+        w.points_earned, w.goal_met, w.suspension_lifted, w.finalized_at, w.created_at,
+        COUNT(a.id) AS activity_count
       FROM weeks w
       LEFT JOIN activities a ON a.week_id = w.id
       GROUP BY w.id
@@ -32,7 +36,8 @@ router.get('/weeks', requireAuth, async (req, res, next) => {
 router.get('/weeks/:id/activities', requireAuth, async (req, res, next) => {
   try {
     const { rows } = await pool.query(`
-      SELECT a.*, at.name AS type_name, at.unit
+      SELECT a.*, TO_CHAR(a.activity_date, 'YYYY-MM-DD') AS activity_date,
+             at.name AS type_name, at.unit
       FROM activities a
       LEFT JOIN activity_types at ON at.id = a.activity_type_id
       WHERE a.week_id = $1

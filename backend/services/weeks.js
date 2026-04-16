@@ -65,7 +65,10 @@ async function getCurrentWeekData() {
   const week = await ensureWeek(weekStart, weekEnd);
   await recalcWeekPoints(week.id);
 
-  const { rows: [fresh] } = await pool.query('SELECT * FROM weeks WHERE id = $1', [week.id]);
+  const { rows: [fresh] } = await pool.query(
+    `SELECT *, TO_CHAR(week_start, 'YYYY-MM-DD') AS week_start, TO_CHAR(week_end, 'YYYY-MM-DD') AS week_end FROM weeks WHERE id = $1`,
+    [week.id]
+  );
   const { rows: config } = await pool.query('SELECT points_goal FROM weekly_config WHERE id = 1');
   const goal = config[0]?.points_goal || 100;
 
