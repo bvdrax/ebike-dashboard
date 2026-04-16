@@ -550,6 +550,10 @@ function UsersTab() {
   const [form, setForm] = useState({ username: '', password: '', role: 'athlete', display_name: '' })
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [resetingId, setResetingId] = useState(null)
+  const [resetForm, setResetForm] = useState({ password: '', confirm: '' })
+  const [resetError, setResetError] = useState('')
+  const [resetSaving, setResetSaving] = useState(false)
 
   useEffect(() => { api.listUsers().then(setUsers) }, [])
 
@@ -565,36 +569,67 @@ function UsersTab() {
     }
   }
 
+  const startReset = (id) => {
+    setResetingId(id)
+    setResetForm({ password: '', confirm: '' })
+    setResetError('')
+  }
+
+  const saveReset = async (id) => {
+    if (resetForm.password !== resetForm.confirm) { setResetError('Passwords do not match'); return }
+    if (resetForm.password.length < 4) { setResetError('Password too short'); return }
+    setResetSaving(true); setResetError('')
+    try {
+      await api.resetUserPassword(id, resetForm.password)
+      setResetingId(null)
+    } catch (err) {
+      setResetError(err.message)
+    } finally {
+      setResetSaving(false)
+    }
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: '600px' }}>
       <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
-          <thead>
-            <tr style={{ borderBottom: '1px solid var(--border)' }}>
-              {['Username', 'Display Name', 'Role'].map(h => (
-                <th key={h} className="label" style={{ textAlign: 'left', padding: '0.5rem 0.75rem' }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {users.map(u => (
-              <tr key={u.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                <td style={{ padding: '0.6rem 0.75rem', fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}>{u.username}</td>
-                <td style={{ padding: '0.6rem 0.75rem' }}>{u.display_name}</td>
-                <td style={{ padding: '0.6rem 0.75rem' }}>
-                  <span style={{
-                    fontSize: '0.7rem', padding: '2px 7px', borderRadius: '4px', fontWeight: 600,
-                    textTransform: 'uppercase', letterSpacing: '0.05em',
-                    background: u.role === 'admin' ? 'var(--amber-glow)' : u.role === 'parent' ? 'var(--blue-dim)' : 'var(--green-dim)',
-                    color: u.role === 'admin' ? 'var(--amber)' : u.role === 'parent' ? 'var(--blue)' : 'var(--green)',
-                  }}>
-                    {u.role}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {users.map((u, i) => (
+          <div key={u.id} style={{ borderBottom: i < users.length - 1 ? '1px solid var(--border)' : 'none' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.6rem 0.75rem', flexWrap: 'wrap' }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', minWidth: '80px' }}>{u.username}</span>
+              <span style={{ flex: 1, fontSize: '0.875rem' }}>{u.display_name}</span>
+              <span style={{
+                fontSize: '0.7rem', padding: '2px 7px', borderRadius: '4px', fontWeight: 600,
+                textTransform: 'uppercase', letterSpacing: '0.05em',
+                background: u.role === 'admin' ? 'var(--amber-glow)' : u.role === 'parent' ? 'var(--blue-dim)' : 'var(--green-dim)',
+                color: u.role === 'admin' ? 'var(--amber)' : u.role === 'parent' ? 'var(--blue)' : 'var(--green)',
+              }}>{u.role}</span>
+              <button className="btn btn-ghost" onClick={() => resetingId === u.id ? setResetingId(null) : startReset(u.id)}
+                style={{ padding: '0.25rem 0.6rem', fontSize: '0.75rem' }}>
+                {resetingId === u.id ? 'Cancel' : 'Reset Password'}
+              </button>
+            </div>
+            {resetingId === u.id && (
+              <div style={{ padding: '0.75rem', background: 'var(--surface-2)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                  <Field label="New Password">
+                    <input type="password" value={resetForm.password} onChange={e => setResetForm(f => ({ ...f, password: e.target.value }))}
+                      style={inputStyle} autoComplete="new-password" />
+                  </Field>
+                  <Field label="Confirm">
+                    <input type="password" value={resetForm.confirm} onChange={e => setResetForm(f => ({ ...f, confirm: e.target.value }))}
+                      style={inputStyle} autoComplete="new-password" />
+                  </Field>
+                </div>
+                {resetError && <div style={{ color: 'var(--red)', fontSize: '0.8rem' }}>{resetError}</div>}
+                <button className="btn btn-primary" onClick={() => saveReset(u.id)}
+                  disabled={resetSaving || !resetForm.password || !resetForm.confirm}
+                  style={{ alignSelf: 'flex-start' }}>
+                  {resetSaving ? <span className="spinner" style={{ width: 12, height: 12 }} /> : 'Save'}
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
 
       <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>

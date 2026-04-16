@@ -24,10 +24,12 @@ async function request(method, path, body) {
 
 export const api = {
   // Auth
-  login:      (username, password) => request('POST', '/auth/login', { username, password }),
-  me:         ()                   => request('GET',  '/auth/me'),
-  listUsers:  ()                   => request('GET',  '/auth/users'),
-  createUser: (data)               => request('POST', '/auth/users', data),
+  login:           (username, password)             => request('POST', '/auth/login', { username, password }),
+  me:              ()                               => request('GET',  '/auth/me'),
+  changePassword:  (current_password, new_password) => request('PUT',  '/auth/me/password', { current_password, new_password }),
+  listUsers:       ()                               => request('GET',  '/auth/users'),
+  createUser:      (data)                           => request('POST', '/auth/users', data),
+  resetUserPassword: (id, password)                 => request('PUT',  `/auth/users/${id}/password`, { password }),
 
   // Dashboard
   getCurrentWeek:     ()   => request('GET',  '/dashboard/current-week'),

@@ -79,6 +79,20 @@ router.post('/users', requireAuth, requireRole('admin'), async (req, res, next) 
   }
 });
 
+// PUT /api/auth/me/password — self-service, requires current password
+router.put('/me/password', requireAuth, async (req, res, next) => {
+  try {
+    const { current_password, new_password } = req.body;
+    if (!new_password || new_password.length < 4) return res.status(400).json({ error: 'New password too short' });
+    const { rows } = await pool.query('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
+    const match = await bcrypt.compare(current_password, rows[0].password_hash);
+    if (!match) return res.status(401).json({ error: 'Current password is incorrect' });
+    const hash = await bcrypt.hash(new_password, 10);
+    await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, req.user.id]);
+    res.json({ ok: true });
+  } catch (err) { next(err); }
+});
+
 // PUT /api/auth/users/:id/password (admin only)
 router.put('/users/:id/password', requireAuth, requireRole('admin'), async (req, res, next) => {
   try {
