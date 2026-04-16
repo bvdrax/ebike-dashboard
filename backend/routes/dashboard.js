@@ -36,10 +36,17 @@ router.get('/weeks', requireAuth, async (req, res, next) => {
 router.get('/weeks/:id/activities', requireAuth, async (req, res, next) => {
   try {
     const { rows } = await pool.query(`
-      SELECT a.*, TO_CHAR(a.activity_date, 'YYYY-MM-DD') AS activity_date,
-             at.name AS type_name, at.unit
+      SELECT
+        a.id, a.week_id, a.activity_type_id, a.source,
+        TO_CHAR(a.activity_date, 'YYYY-MM-DD') AS activity_date,
+        COALESCE(o.value,          a.value)          AS value,
+        COALESCE(o.points_awarded, a.points_awarded)  AS points_awarded,
+        COALESCE(o.name,           a.name)            AS name,
+        COALESCE(o.note,           a.note)            AS note,
+        at.name AS type_name, at.unit
       FROM activities a
       LEFT JOIN activity_types at ON at.id = a.activity_type_id
+      LEFT JOIN activity_overrides o ON o.activity_id = a.id
       WHERE a.week_id = $1
       ORDER BY a.activity_date DESC, a.created_at DESC
     `, [req.params.id]);

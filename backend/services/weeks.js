@@ -37,9 +37,11 @@ async function recalcWeekPoints(weekId) {
       SET points_earned = (
         SELECT COALESCE(SUM(daily_pts), 0)
         FROM (
-          SELECT LEAST(SUM(points_awarded), $2) AS daily_pts
-          FROM activities WHERE week_id = $1
-          GROUP BY activity_date
+          SELECT LEAST(SUM(COALESCE(o.points_awarded, a.points_awarded)), $2) AS daily_pts
+          FROM activities a
+          LEFT JOIN activity_overrides o ON o.activity_id = a.id
+          WHERE a.week_id = $1
+          GROUP BY a.activity_date
         ) daily
       )
       WHERE id = $1
@@ -48,8 +50,10 @@ async function recalcWeekPoints(weekId) {
     await pool.query(`
       UPDATE weeks
       SET points_earned = (
-        SELECT COALESCE(SUM(points_awarded), 0)
-        FROM activities WHERE week_id = $1
+        SELECT COALESCE(SUM(COALESCE(o.points_awarded, a.points_awarded)), 0)
+        FROM activities a
+        LEFT JOIN activity_overrides o ON o.activity_id = a.id
+        WHERE a.week_id = $1
       )
       WHERE id = $1
     `, [weekId]);

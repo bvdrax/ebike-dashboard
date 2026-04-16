@@ -1,5 +1,6 @@
 const { pool } = require('../migrations/run');
 const { getWeekDates, ensureWeek, recalcWeekPoints } = require('./weeks');
+const { calcPoints } = require('./points');
 
 async function getAccessToken() {
   const resp = await fetch('https://www.strava.com/oauth/token', {
@@ -58,9 +59,7 @@ async function syncStravaActivities() {
     else continue;
 
     value = Math.round(value * 100) / 100;
-    const points = value < parseFloat(type.minimum_value)
-      ? 0
-      : Math.round(value * parseFloat(type.points_per_unit));
+    const points = calcPoints(value, type);
     if (points === 0) continue;
 
     const activityDate = act.start_date_local.slice(0, 10);

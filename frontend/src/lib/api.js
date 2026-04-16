@@ -43,7 +43,8 @@ export const api = {
   updateWeeklyConfig: (data)    => request('PUT',  '/config/weekly', data),
   addCredit:          (data)    => request('POST', '/config/credits', data),
   liftSuspension:     (weekId)  => request('POST', `/config/weeks/${weekId}/lift-suspension`),
-  getActivities:      ()        => request('GET',  '/config/activities'),
-  updateActivity:     (id, data)=> request('PUT',  `/config/activities/${id}`, data),
-  deleteActivity:     (id)      => request('DELETE',`/config/activities/${id}`),
+  getActivities:           ()        => request('GET',  '/config/activities'),
+  updateActivity:          (id, data)=> request('PUT',  `/config/activities/${id}`, data),
+  clearActivityOverride:   (id)      => request('DELETE',`/config/activities/${id}/override`),
+  deleteActivity:          (id)      => request('DELETE',`/config/activities/${id}`),
 }

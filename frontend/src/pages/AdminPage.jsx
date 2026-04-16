@@ -152,24 +152,34 @@ function ManualCreditTab() {
 function ActivitiesTab() {
   const [activities, setActivities] = useState([])
   const [loading, setLoading] = useState(true)
-  const [editing, setEditing] = useState(null) // { id, value, name, note }
+  const [editing, setEditing] = useState(null)
   const [saving, setSaving] = useState(null)
+  const [clearing, setClearing] = useState(null)
   const [deleting, setDeleting] = useState(null)
 
-  useEffect(() => {
-    api.getActivities().then(data => { setActivities(data); setLoading(false) })
-  }, [])
+  const reload = () => api.getActivities().then(data => { setActivities(data); setLoading(false) })
+  useEffect(() => { reload() }, [])
+
+  const startEdit = (activity) => {
+    // Pre-fill with current effective values (override if exists, else original)
+    setEditing({
+      id: activity.id,
+      value: String(activity.override_value ?? activity.original_value),
+      name: activity.override_name ?? activity.original_name ?? '',
+      note: activity.override_note ?? activity.original_note ?? '',
+    })
+  }
 
   const save = async (id) => {
     setSaving(id)
     try {
-      const updated = await api.updateActivity(id, {
+      await api.updateActivity(id, {
         value: parseFloat(editing.value),
         name: editing.name || null,
         note: editing.note || null,
       })
-      setActivities(acts => acts.map(a => a.id === id ? { ...a, ...updated } : a))
       setEditing(null)
+      await reload()
     } catch (err) {
       alert(err.message)
     } finally {
@@ -177,37 +187,33 @@ function ActivitiesTab() {
     }
   }
 
-  const remove = async (id) => {
-    if (!window.confirm('Delete this activity? Points will be recalculated.')) return
-    setDeleting(id)
+  const clearOverride = async (id) => {
+    setClearing(id)
     try {
-      await api.deleteActivity(id)
-      setActivities(acts => acts.filter(a => a.id !== id))
+      await api.clearActivityOverride(id)
+      await reload()
+    } finally {
+      setClearing(null)
+    }
+  }
+
+  const remove = async (activity) => {
+    const msg = activity.source === 'strava'
+      ? 'Delete this Strava activity? It will re-appear on the next Strava sync. Use an override to change values instead.'
+      : 'Delete this manual credit? Points will be recalculated.'
+    if (!window.confirm(msg)) return
+    setDeleting(activity.id)
+    try {
+      await api.deleteActivity(activity.id)
+      await reload()
     } finally {
       setDeleting(null)
     }
   }
 
-  const startEdit = (activity) => {
-    setEditing({ id: activity.id, value: activity.value, name: activity.name || '', note: activity.note || '' })
-  }
-
-  const previewPoints = (activity) => {
-    if (!editing || editing.id !== activity.id) return null
-    const v = parseFloat(editing.value)
-    if (isNaN(v)) return null
-    return v < parseFloat(activity.minimum_value)
-      ? 0
-      : Math.round(v * parseFloat(activity.points_per_unit))
-  }
-
   if (loading) return <div className="spinner" />
+  if (activities.length === 0) return <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>No activities yet.</div>
 
-  if (activities.length === 0) {
-    return <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>No activities yet.</div>
-  }
-
-  // Group by week_start
   const grouped = activities.reduce((acc, a) => {
     const key = a.week_start || 'unknown'
     if (!acc[key]) acc[key] = []
@@ -216,9 +222,9 @@ function ActivitiesTab() {
   }, {})
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: '760px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: '800px' }}>
       <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-        Edit or delete any logged activity. Changing the value recalculates points automatically.
+        Edits are stored as overrides and survive Strava re-syncs. Strava values are always preserved.
       </p>
       {Object.entries(grouped).map(([weekStart, acts]) => {
         const label = weekStart !== 'unknown'
@@ -230,42 +236,39 @@ function ActivitiesTab() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
               {acts.map(activity => {
                 const isEditing = editing?.id === activity.id
-                const pts = previewPoints(activity)
+                const hasOverride = activity.override_id != null
+                const effValue = activity.override_value ?? activity.original_value
+                const effPoints = activity.override_points ?? activity.original_points
+                const effName = activity.override_name ?? activity.original_name
+                const effNote = activity.override_note ?? activity.original_note
+
                 return (
-                  <div key={activity.id} className="card" style={{ padding: '0.875rem 1rem' }}>
+                  <div key={activity.id} className="card" style={{ padding: '0.875rem 1rem', borderLeft: hasOverride ? '2px solid var(--amber)' : undefined }}>
                     {isEditing ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          Strava original: {parseFloat(activity.original_value).toFixed(2)} {activity.unit} · {activity.original_points} pts · {activity.original_name}
+                        </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.75rem' }}>
                           <Field label={`Value (${activity.unit})`}>
-                            <input
-                              type="number" step="0.01" value={editing.value}
+                            <input type="number" step="0.01" value={editing.value}
                               onChange={e => setEditing(ed => ({ ...ed, value: e.target.value }))}
-                              style={inputStyle}
-                            />
+                              style={inputStyle} />
                           </Field>
-                          <Field label="Name">
-                            <input
-                              type="text" value={editing.name}
+                          <Field label="Name (blank = use original)">
+                            <input type="text" value={editing.name}
                               onChange={e => setEditing(ed => ({ ...ed, name: e.target.value }))}
-                              style={inputStyle}
-                            />
+                              style={inputStyle} placeholder={activity.original_name} />
                           </Field>
                           <Field label="Note">
-                            <input
-                              type="text" value={editing.note}
+                            <input type="text" value={editing.note}
                               onChange={e => setEditing(ed => ({ ...ed, note: e.target.value }))}
-                              style={inputStyle}
-                            />
+                              style={inputStyle} />
                           </Field>
                         </div>
-                        {pts !== null && (
-                          <div style={{ fontSize: '0.8rem', color: pts > 0 ? 'var(--green)' : 'var(--red)', fontWeight: 500 }}>
-                            → {pts > 0 ? `${pts} points` : `Below minimum — 0 points`}
-                          </div>
-                        )}
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
                           <button className="btn btn-primary" onClick={() => save(activity.id)} disabled={saving === activity.id}>
-                            {saving === activity.id ? <span className="spinner" style={{ width: 12, height: 12 }} /> : 'Save'}
+                            {saving === activity.id ? <span className="spinner" style={{ width: 12, height: 12 }} /> : 'Save Override'}
                           </button>
                           <button className="btn btn-ghost" onClick={() => setEditing(null)}>Cancel</button>
                         </div>
@@ -273,17 +276,33 @@ function ActivitiesTab() {
                     ) : (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
                         <div style={{ flex: 1, minWidth: '160px' }}>
-                          <div style={{ fontWeight: 500, fontSize: '0.875rem' }}>{activity.name}</div>
+                          <div style={{ fontWeight: 500, fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            {effName}
+                            {hasOverride && (
+                              <span style={{ fontSize: '0.6rem', padding: '1px 5px', borderRadius: '3px', fontWeight: 700,
+                                letterSpacing: '0.08em', background: 'var(--amber-glow)', color: 'var(--amber)', textTransform: 'uppercase' }}>
+                                overridden
+                              </span>
+                            )}
+                          </div>
                           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
                             {new Date(activity.activity_date + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })}
                             {' · '}{activity.type_name}
-                            {' · '}{parseFloat(activity.value).toFixed(2)} {activity.unit}
-                            {activity.note && ` · ${activity.note}`}
+                            {' · '}{parseFloat(effValue).toFixed(2)} {activity.unit}
+                            {hasOverride && parseFloat(activity.override_value) !== parseFloat(activity.original_value) && (
+                              <span style={{ color: 'var(--text-dim)' }}> (was {parseFloat(activity.original_value).toFixed(2)})</span>
+                            )}
+                            {effNote && ` · ${effNote}`}
                           </div>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                           <span style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', color: 'var(--green)' }}>
-                            +{activity.points_awarded}
+                            +{effPoints}
+                            {hasOverride && parseFloat(activity.override_points) !== parseFloat(activity.original_points) && (
+                              <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', color: 'var(--text-dim)', marginLeft: '4px' }}>
+                                (was {activity.original_points})
+                              </span>
+                            )}
                           </span>
                           <span style={{
                             fontSize: '0.65rem', padding: '1px 6px', borderRadius: '4px', fontWeight: 600,
@@ -293,15 +312,20 @@ function ActivitiesTab() {
                           }}>
                             {activity.source}
                           </span>
-                          <button className="btn btn-ghost" onClick={() => startEdit(activity)} style={{ padding: '0.3rem 0.65rem', fontSize: '0.8rem' }}>
-                            Edit
+                          <button className="btn btn-ghost" onClick={() => startEdit(activity)}
+                            style={{ padding: '0.3rem 0.65rem', fontSize: '0.8rem' }}>
+                            {hasOverride ? 'Edit Override' : 'Override'}
                           </button>
-                          <button
-                            className="btn btn-ghost"
-                            onClick={() => remove(activity.id)}
+                          {hasOverride && (
+                            <button className="btn btn-ghost" onClick={() => clearOverride(activity.id)}
+                              disabled={clearing === activity.id}
+                              style={{ padding: '0.3rem 0.65rem', fontSize: '0.8rem', color: 'var(--amber)', borderColor: 'var(--amber-glow)' }}>
+                              {clearing === activity.id ? <span className="spinner" style={{ width: 12, height: 12 }} /> : 'Clear'}
+                            </button>
+                          )}
+                          <button className="btn btn-ghost" onClick={() => remove(activity)}
                             disabled={deleting === activity.id}
-                            style={{ padding: '0.3rem 0.65rem', fontSize: '0.8rem', color: 'var(--red)', borderColor: 'var(--red-dim)' }}
-                          >
+                            style={{ padding: '0.3rem 0.65rem', fontSize: '0.8rem', color: 'var(--red)', borderColor: 'var(--red-dim)' }}>
                             {deleting === activity.id ? <span className="spinner" style={{ width: 12, height: 12 }} /> : 'Delete'}
                           </button>
                         </div>
@@ -324,7 +348,7 @@ function ActivityConfigTab() {
   const [editing, setEditing] = useState(null)
   const [saving, setSaving] = useState(null)
   const [showAdd, setShowAdd] = useState(false)
-  const [newType, setNewType] = useState({ name: '', strava_type: '', points_per_unit: 10, unit: 'mile', minimum_value: 1 })
+  const [newType, setNewType] = useState({ name: '', strava_type: '', points_per_unit: 10, unit: 'mile', minimum_value: 1, points_increment: '' })
   const [addError, setAddError] = useState('')
 
   useEffect(() => { api.getActivityTypes().then(setTypes) }, [])
@@ -353,6 +377,7 @@ function ActivityConfigTab() {
         strava_type: newType.strava_type || null,
         points_per_unit: parseFloat(newType.points_per_unit),
         minimum_value: parseFloat(newType.minimum_value),
+        points_increment: newType.points_increment !== '' ? parseFloat(newType.points_increment) : null,
       })
       setTypes(ts => [...ts, created])
       setShowAdd(false)
@@ -391,6 +416,12 @@ function ActivityConfigTab() {
                     onChange={e => setEditing(ed => ({ ...ed, minimum_value: parseFloat(e.target.value) }))}
                     style={inputStyle} />
                 </Field>
+                <Field label={`Increment (${editing.unit}s, blank = none)`}>
+                  <input type="number" step="0.1" min="0.1"
+                    value={editing.points_increment ?? ''}
+                    onChange={e => setEditing(ed => ({ ...ed, points_increment: e.target.value !== '' ? parseFloat(e.target.value) : null }))}
+                    style={inputStyle} placeholder="No increment" />
+                </Field>
               </div>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <button className="btn btn-primary" onClick={() => save(type.id)} disabled={saving === type.id}>
@@ -406,7 +437,7 @@ function ActivityConfigTab() {
                 {type.strava_type && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Strava: {type.strava_type}</div>}
               </div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--text-muted)', opacity: type.enabled ? 1 : 0.4 }}>
-                {type.points_per_unit} pts/{type.unit} · min {type.minimum_value} {type.unit}
+                {type.points_per_unit} pts/{type.unit} · min {type.minimum_value} {type.unit}{type.points_increment ? ` · every ${type.points_increment} ${type.unit}` : ''}
               </div>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <button className="btn btn-ghost" onClick={() => setEditing({ ...type })} style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}>
@@ -445,6 +476,7 @@ function ActivityConfigTab() {
               </select>
             </Field>
             <Field label={`Minimum (${newType.unit}s)`}><input type="number" value={newType.minimum_value} onChange={e => setNewType(n => ({ ...n, minimum_value: e.target.value }))} style={inputStyle} /></Field>
+            <Field label={`Increment (${newType.unit}s, blank = none)`}><input type="number" step="0.1" value={newType.points_increment} onChange={e => setNewType(n => ({ ...n, points_increment: e.target.value }))} style={inputStyle} placeholder="No increment" /></Field>
           </div>
           {addError && <div style={{ color: 'var(--red)', fontSize: '0.8rem' }}>{addError}</div>}
           <div style={{ display: 'flex', gap: '0.5rem' }}>
